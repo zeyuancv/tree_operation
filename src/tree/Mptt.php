@@ -1671,6 +1671,20 @@ class Mptt {
 
     }
 	
+	// 获取节点信息
+	public function get_node($nodeId){
+		$result = mysqli_query($this->link, '
+						SELECT
+							*
+						FROM
+							`' . $this->properties['table_name'] . '`
+						WHERE
+							`' . $this->properties['id_column'] . '` = ' . $nodeId . '							
+						LIMIT 1
+					') or trigger_error(mysqli_error($this->link), E_USER_ERROR);			
+		return mysqli_fetch_assoc($result);		
+	}	
+	
 	// 获取后代
 	public function children($nodeId){
 		return $this->get_tree($nodeId);
