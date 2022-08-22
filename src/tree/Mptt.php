@@ -1602,6 +1602,93 @@ class Mptt {
         }
 
     }
+	
+	// 获取后代
+	public function children($nodeId){
+		return $this->get_tree($nodeId);
+	}
+	
+	// 是否父节点
+	public function is_parent($nodeId){
+		if($this->get_descendant_count($nodeId)>0){
+			return true;
+		}else{
+			return false;
+		}		
+	}
+	
+	// 是否叶子节点
+	public function is_leaf($nodeId){
+		if($this->get_descendant_count($nodeId)==0){
+			return true;
+		}else{
+			return false;
+		}
+	}
+
+	// 是否子节点
+	public function is_child($nodeId){
+		if(!$this->get_parent($nodeId)){
+			return false;
+		}
+		return true;
+	}
+
+	// 是否root节点
+	function is_root($nodeId){
+		$result = mysqli_query($this->link, '
+						SELECT
+							'.$this->properties['left_column'].'
+						FROM
+							`' . $this->properties['table_name'] . '`
+						WHERE
+							`' . $this->properties['id_column'] . '` = ' . $nodeId . '							
+						LIMIT 1
+					') or trigger_error(mysqli_error($this->link), E_USER_ERROR);			
+		$row = mysqli_fetch_assoc($result);
+		if(isset($row[$this->properties['left_column']])&& $row[$this->properties['left_column']]==1){
+			return true;
+		}
+		return false;
+	}
+	
+	// 是否有后代
+	public function has_children($nodeId){
+		$result = mysqli_query($this->link, '
+						SELECT
+							'.$this->properties['left_column'].',
+							'.$this->properties['right_column'].'
+						FROM
+							`' . $this->properties['table_name'] . '`
+						WHERE
+							`' . $this->properties['id_column'] . '` = ' . $nodeId . '							
+						LIMIT 1
+					') or trigger_error(mysqli_error($this->link), E_USER_ERROR);			
+		$row = mysqli_fetch_assoc($result);
+		if(isset($row[$this->properties['left_column']])){
+			return (($row[$this->properties['right_column']] - $row[$this->properties['left_column']])>1);
+		}
+		return false;
+	}	
+
+	// 获取后代数量
+	public function get_size($nodeId){
+		$result = mysqli_query($this->link, '
+						SELECT
+							'.$this->properties['left_column'].',
+							'.$this->properties['right_column'].'
+						FROM
+							`' . $this->properties['table_name'] . '`
+						WHERE
+							`' . $this->properties['id_column'] . '` = ' . $nodeId . '							
+						LIMIT 1
+					') or trigger_error(mysqli_error($this->link), E_USER_ERROR);			
+		$row = mysqli_fetch_assoc($result);
+		if(isset($row[$this->properties['left_column']])){
+			return (($row[$this->properties['right_column']] - $row[$this->properties['left_column']])+ 1);
+		}
+		return false;		
+	}
 
     /**
      *  Reads the data from the MySQL table and creates a lookup array. Searches will be done in the lookup array
