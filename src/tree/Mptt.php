@@ -466,7 +466,7 @@ class Mptt {
             }
 			
             // lock table to prevent other sessions from modifying the data and thus preserving data integrity
-			mysqli_query($this->link, 'LOCK TABLE `' . $this->properties['table_name'] . '` WRITE') or trigger_error(mysqli_error($this->link), E_USER_ERROR);
+			//mysqli_query($this->link, 'LOCK TABLE `' . $this->properties['table_name'] . '` WRITE') or trigger_error(mysqli_error($this->link), E_USER_ERROR);
 
             $arrange_right_qr = '
                 UPDATE
@@ -487,13 +487,38 @@ class Mptt {
             '; 
 
             // update the nodes in the database having their "left"/"right" values outside the boundary
-            mysqli_query($this->link, $arrange_left_qr);
+            //mysqli_query($this->link, $arrange_left_qr);
 
-            mysqli_query($this->link,$arrange_right_qr);
+           // mysqli_query($this->link,$arrange_right_qr);
 
             // finally, the nodes that are to be inserted need to have their "left" and "right" values updated
             $shift = $target_boundary - $source_boundary + 1;
 
+			$sqlKeyStr = '';
+			$sqlValStr = '';
+			
+			// 复制
+			foreach ($sources as $idVal => $myProperties) {
+				$sqlKeyArr = [];
+				$sqlValArr = [];
+				$myPropertiesArr = array_diff_key($myProperties,[$this->properties['id_column']=>'',$this->properties['title_column']=>'',$this->properties['left_column']=>'',$this->properties['right_column']=>'',$this->properties['parent_column']=>'']);
+				foreach($myPropertiesArr as $prKey=>$prVal){
+					if(!isset($this->properties[$prKey])){
+						$this->properties[$prKey] = $prKey;
+					}
+					$sqlKeyArr[] = '' . $this->properties[$prKey] . '';
+					$sqlValArr[] = '"' . mysqli_real_escape_string($this->link,$prVal) . '"';
+				}
+			}
+			
+			if(count($sqlKeyArr)>0){
+				$sqlKeyStr = ','.implode(',',$sqlKeyArr);
+			}
+			
+			if(count($sqlValArr)>0){
+				$sqlValStr = ','.implode(',',$sqlValArr);
+			}	
+			
             // iterate through the nodes that are to be inserted
             foreach ($sources as $id => $properties) {
 
@@ -512,6 +537,7 @@ class Mptt {
                             ' . $this->properties['left_column'] . ',
                             ' . $this->properties['right_column'] . ',
                             ' . $this->properties['parent_column'] . '
+							'.$sqlKeyStr.'
                         )
                     VALUES
                         (
@@ -519,6 +545,7 @@ class Mptt {
                             ' . $sources[$id][$this->properties['left_column']] . ',
                             ' . $sources[$id][$this->properties['right_column']] . ',
                             ' . $sources[$id][$this->properties['parent_column']] . '
+							'.$sqlValStr.'
                         )
                 ');
 
@@ -1602,6 +1629,43 @@ class Mptt {
         }
 
     }
+
+    /**
+     *  Reads the data from the MySQL table and creates a lookup array. Searches will be done in the lookup array
+     *  rather than always querying the database.
+     *
+     *  @return void
+     *
+     *  @access private
+     */
+    private function _init() {
+
+        // if the results are not already cached
+        if (!isset($this->lookup)) {
+
+            // fetch data from the database
+            $result = mysqli_query($this->link, '
+
+                SELECT
+                    *
+                FROM
+                    `' . $this->properties['table_name'] . '`
+                ORDER BY
+                    `' . $this->properties['left_column'] . '`
+
+            ') or trigger_error(mysqli_error($this->link), E_USER_ERROR);
+
+            $this->lookup = array();
+
+            // iterate through the found records
+            while ($row = mysqli_fetch_assoc($result))
+
+                // put all records in an array; use the ID column as index
+                $this->lookup[$row[$this->properties['id_column']]] = $row;
+
+        }
+
+    }
 	
 	// 获取后代
 	public function children($nodeId){
@@ -1689,43 +1753,6 @@ class Mptt {
 		}
 		return false;		
 	}
-
-    /**
-     *  Reads the data from the MySQL table and creates a lookup array. Searches will be done in the lookup array
-     *  rather than always querying the database.
-     *
-     *  @return void
-     *
-     *  @access private
-     */
-    private function _init() {
-
-        // if the results are not already cached
-        if (!isset($this->lookup)) {
-
-            // fetch data from the database
-            $result = mysqli_query($this->link, '
-
-                SELECT
-                    *
-                FROM
-                    `' . $this->properties['table_name'] . '`
-                ORDER BY
-                    `' . $this->properties['left_column'] . '`
-
-            ') or trigger_error(mysqli_error($this->link), E_USER_ERROR);
-
-            $this->lookup = array();
-
-            // iterate through the found records
-            while ($row = mysqli_fetch_assoc($result))
-
-                // put all records in an array; use the ID column as index
-                $this->lookup[$row[$this->properties['id_column']]] = $row;
-
-        }
-
-    }
 
     /**
      *  Updates the lookup array after inserts and deletes.
