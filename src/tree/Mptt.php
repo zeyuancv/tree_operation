@@ -466,7 +466,7 @@ class Mptt {
             }
 			
             // lock table to prevent other sessions from modifying the data and thus preserving data integrity
-			//mysqli_query($this->link, 'LOCK TABLE `' . $this->properties['table_name'] . '` WRITE') or trigger_error(mysqli_error($this->link), E_USER_ERROR);
+			mysqli_query($this->link, 'LOCK TABLE `' . $this->properties['table_name'] . '` WRITE') or trigger_error(mysqli_error($this->link), E_USER_ERROR);
 
             $arrange_right_qr = '
                 UPDATE
@@ -487,37 +487,41 @@ class Mptt {
             '; 
 
             // update the nodes in the database having their "left"/"right" values outside the boundary
-            //mysqli_query($this->link, $arrange_left_qr);
+            mysqli_query($this->link, $arrange_left_qr);
 
-           // mysqli_query($this->link,$arrange_right_qr);
+            mysqli_query($this->link,$arrange_right_qr);
 
             // finally, the nodes that are to be inserted need to have their "left" and "right" values updated
             $shift = $target_boundary - $source_boundary + 1;
 
-			$sqlKeyStr = '';
-			$sqlValStr = '';
-			
+			$sqlKeyStrArr = [];
+			$sqlValStrArr = [];
 			// 复制
+			
+			$sqlKeyArr = [];
+			$sqlValArr = [];			
 			foreach ($sources as $idVal => $myProperties) {
-				$sqlKeyArr = [];
-				$sqlValArr = [];
 				$myPropertiesArr = array_diff_key($myProperties,[$this->properties['id_column']=>'',$this->properties['title_column']=>'',$this->properties['left_column']=>'',$this->properties['right_column']=>'',$this->properties['parent_column']=>'']);
 				foreach($myPropertiesArr as $prKey=>$prVal){
 					if(!isset($this->properties[$prKey])){
 						$this->properties[$prKey] = $prKey;
 					}
-					$sqlKeyArr[] = '' . $this->properties[$prKey] . '';
-					$sqlValArr[] = '"' . mysqli_real_escape_string($this->link,$prVal) . '"';
+					$sqlKeyArr[$idVal][] = '' . $this->properties[$prKey] . '';
+					$sqlValArr[$idVal][] = '"' . mysqli_real_escape_string($this->link,$prVal) . '"';
 				}
 			}
 			
 			if(count($sqlKeyArr)>0){
-				$sqlKeyStr = ','.implode(',',$sqlKeyArr);
+				foreach($sqlKeyArr as $mKey=>$subVal){
+					$sqlKeyStrArr[$mKey] = ','.implode(',',$subVal);
+				}
 			}
 			
 			if(count($sqlValArr)>0){
-				$sqlValStr = ','.implode(',',$sqlValArr);
-			}	
+				foreach($sqlValArr as $nKey=>$subVal){
+					$sqlValStrArr[$nKey] = ','.implode(',',$subVal);
+				}
+			}			
 			
             // iterate through the nodes that are to be inserted
             foreach ($sources as $id => $properties) {
@@ -537,7 +541,7 @@ class Mptt {
                             ' . $this->properties['left_column'] . ',
                             ' . $this->properties['right_column'] . ',
                             ' . $this->properties['parent_column'] . '
-							'.$sqlKeyStr.'
+							'.$sqlKeyStrArr[$id].'
                         )
                     VALUES
                         (
@@ -545,7 +549,7 @@ class Mptt {
                             ' . $sources[$id][$this->properties['left_column']] . ',
                             ' . $sources[$id][$this->properties['right_column']] . ',
                             ' . $sources[$id][$this->properties['parent_column']] . '
-							'.$sqlValStr.'
+							'.$sqlValStrArr[$id].'
                         )
                 ');
 
